@@ -103,10 +103,10 @@ endif
 BRANDFLAGS+=-DCONFIG_FILE_NAME=config_$(FTE_CONFIG).h $(FTE_CONFIG_EXTRA)
 EXE_NAME=$(FTE_CONFIG)
 ifeq (,$(findstring DNO_SPEEX,$(FTE_CONFIG_EXTRA)))
-	USE_SPEEX?=1
+	USE_SPEEX?=0
 endif
 ifeq (,$(findstring DNO_OPUS,$(FTE_CONFIG_EXTRA)))
-	USE_OPUS=1
+	USE_OPUS=0
 endif
 ifeq (,$(findstring DNO_BOTLIB,$(FTE_CONFIG_EXTRA)))
 	USE_BOTLIB=1
@@ -518,7 +518,8 @@ ifeq ($(NOCOMPAT),1)
 	NCCFLAGS=-DNOLEGACY -DOMIT_QCC
 	NCDIRPREFIX=nc
 endif
-ALL_CFLAGS=$(HAVECONFIG) $(VISIBILITY_FLAGS) $(BRANDFLAGS) $(CFLAGS) $(BASE_CFLAGS) $(WCFLAGS) $(ARCH_CFLAGS) $(NCCFLAGS) -I$(ARCHLIBS)
+ALL_CFLAGS=$(HAVECONFIG) $(VISIBILITY_FLAGS) $(BRANDFLAGS) $(CFLAGS) $(BASE_CFLAGS) $(WCFLAGS) $(ARCH_CFLAGS) $(NCCFLAGS) -I$(ARCHLIBS) -IC:/msys64/mingw32/include/freetype2 -IC:/msys64/mingw32/include -IC:/msys64/mingw32/include/libpng16 -IC:/msys64/mingw32/include -IC:/msys64/mingw32/include/harfbuzz -IC:/msys64/mingw32/include/glib-2.0 -IC:/msys64/mingw32/lib/glib-2.0/include -IC:/msys64/mingw32/include
+
 ALL_CXXFLAGS=$(subst -Wno-pointer-sign,,$(ALL_CFLAGS))
 
 #cheap compile-everything-in-one-unit (compile becomes preprocess only)
