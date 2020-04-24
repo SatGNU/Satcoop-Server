@@ -10382,6 +10382,40 @@ static void QCBUILTIN PF_clustertransfer(pubprogfuncs_t *prinst, struct globalva
 #endif
 }
 
+static void QCBUILTIN PF_clustermap(pubprogfuncs_t *prinst, struct globalvars_s *pr_globals)
+{
+	int cluster_id = G_FLOAT(OFS_PARM0);
+	const char *mapname = PR_GetStringOfs(prinst, OFS_PARM1);
+
+	sizebuf_t	send;
+	qbyte		send_buf[MAX_QWMSGLEN];
+
+	if (!SSV_IsSubServer()) {
+		Con_DPrintf("PF_clustermap: This is not a valid subserver\n");
+		G_INT(OFS_RETURN) = 0;
+		return;
+	}
+
+
+	memset(&send, 0, sizeof(send));
+	send.data = send_buf;
+	send.maxsize = sizeof(send_buf);
+	send.cursize = 2;
+
+	MSG_WriteByte(&send, ccmd_setservermap);
+	MSG_WriteLong(&send, cluster_id);
+	MSG_WriteString(&send, mapname);
+
+	SSV_InstructMaster(&send);
+
+	char buf[64];
+	sprintf(buf, "%s has appeared on dimension %d!\n", mapname, cluster_id);
+	SV_BroadcastTPrintf (PRINT_HIGH, buf);
+
+	G_INT(OFS_RETURN) = 0;
+}
+
+
 static void QCBUILTIN PF_setpause(pubprogfuncs_t *prinst, struct globalvars_s *pr_globals)
 {
 	int pause = (G_FLOAT(OFS_PARM0)?PAUSE_EXPLICIT:0) | (sv.paused&~PAUSE_EXPLICIT);
@@ -10994,6 +11028,8 @@ static BuiltinList_t BuiltinList[] = {				//nq	qw		h2		ebfs
 //	{"cvar_setlatch",	PF_cvar_setlatch,	0,		0,		0,		???,	"void(string cvarname, optional string value)"},
 	{"clusterevent",	PF_clusterevent,	0,		0,		0,		0,		D("void(string dest, string from, string cmd, string info)", "Only functions in mapcluster mode. Sends an event to whichever server the named player is on. The destination server can then dispatch the event to the client or handle it itself via the SV_ParseClusterEvent entrypoint. If dest is empty, the event is broadcast to ALL servers. If the named player can't be found, the event will be returned to this server with the cmd prefixed with 'error:'.")},
 	{"clustertransfer",	PF_clustertransfer,	0,		0,		0,		0,		D("string(entity player, optional string newnode)", "Only functions in mapcluster mode. Initiate transfer of the player to a different node. Can take some time. If dest is specified, returns null on error. Otherwise returns the current/new target node (or null if not transferring).")},
+	{"sc_clustermap",		PF_clustermap,	0,		0,		0,		0,		D("void(float node_id, string mapname)", "Start a new subserver with the given cluster ID and load the specified map")},
+
 	{"modelframecount", PF_modelframecount, 0,		0,		0,		0,		D("float(float mdlidx)", "Retrieves the number of frames in the specified model.")},
 
 	{"clearscene",		PF_Fixme,	0,		0,		0,		300,	D("void()", "Forgets all rentities, polygons, and temporary dlights. Resets all view properties to their default values.")},// (EXT_CSQC)

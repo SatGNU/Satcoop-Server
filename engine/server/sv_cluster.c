@@ -34,16 +34,9 @@
 
 #ifdef SUBSERVERS
 
-#ifdef SQL
-#include "sv_sql.h"
-#endif
-
 extern cvar_t sv_serverip;
 
 void VARGS SV_RejectMessage(enum serverprotocols_e protocol, char *format, ...);
-
-
-void MSV_UpdatePlayerStats(unsigned int playerid, unsigned int serverid, int numstats, float *stats);
 
 typedef struct {
 	//fixme: hash tables
@@ -297,24 +290,9 @@ void MSV_MapCluster_f(void)
 		Q_strncpyz(sv.modelname, "start", sizeof(sv.modelname));
 	if (atoi(Cmd_Argv(2)))
 	{
-#ifdef SQL
-		const char *sqlparams[] =
-		{
-			"",
-			"",
-			"",
-			"login",
-		};
-
-		Con_Printf("Opening database \"%s\"\n", sqlparams[3]);
-		sv.logindatabase = SQL_NewServer(&sv, "sqlite", sqlparams);
-		if (sv.logindatabase == -1)
-#endif
-		{
-			SV_UnspawnServer();
-			Con_Printf("Unable to open account database\n");
-			return;
-		}
+		SV_UnspawnServer();
+		Con_Printf("Unable to open account database\n");
+		return;
 	}
 	else
 	{
@@ -463,8 +441,6 @@ void MSV_ReadFromSubServer(pubsubserver_t *s)
 			//player already got taken by a different server, don't save stale data.
 			if (reason && pl->server != s)
 				return;
-
-			MSV_UpdatePlayerStats(plid, s->id, numstats, stats);
 
 			switch (reason)
 			{
@@ -694,6 +670,27 @@ void MSV_ReadFromSubServer(pubsubserver_t *s)
 					MSG_WriteString(&send, info);
 					s->funcs.InstructSlave(s, &send);
 				}
+			}
+		}
+		break;
+	case ccmd_setservermap:
+		{
+			int cluster_id = MSG_ReadLong();
+			char *mapname = MSG_ReadString();
+
+			pubsubserver_t *s = MSV_FindSubServer(cluster_id);
+			if(s) {
+				memset(&send, 0, sizeof(send));
+				send.data = send_buf;
+				send.maxsize = sizeof(send_buf);
+				send.cursize = 2;
+
+				MSG_WriteByte(&send, ccmd_changemap);
+				MSG_WriteString(&send, mapname);
+
+				s->funcs.InstructSlave(s, &send);
+			} else {
+				MSV_StartSubServer(cluster_id, mapname);
 			}
 		}
 		break;
@@ -966,6 +963,12 @@ void SSV_ReadFromControlServer(void)
 			}
 		}
 		break;
+		case ccmd_changemap:
+		{
+			char *newmap = MSG_ReadString();
+			Cbuf_AddText (va("\nchangelevel %s\n", newmap), RESTRICT_LOCAL);
+		}
+		break;
 	}
 
 	if (msg_readcount != net_message.cursize || msg_badread)
@@ -1114,44 +1117,6 @@ void SSV_InitiatePlayerTransfer(client_t *cl, const char *newserver)
 	SSV_InstructMaster(&send);
 }
 
-#ifdef SQL
-#include "sv_sql.h"
-static int pendinglookups = 0;
-struct logininfo_s
-{
-	netadr_t clientaddr;
-	char guid[64];
-	char name[64];
-};
-qboolean SV_IgnoreSQLResult(queryrequest_t *req, int firstrow, int numrows, int numcols, qboolean eof)
-{
-	return false;
-}
-#endif
-void MSV_UpdatePlayerStats(unsigned int playerid, unsigned int serverid, int numstats, float *stats)
-{
-#ifdef SQL
-	queryrequest_t *req;
-	sqlserver_t *srv = SQL_GetServer(&sv, sv.logindatabase, false);
-	static char hex[16] = "0123456789abcdef";
-	char sql[2048], *sqle;
-	union{float *f;qbyte *b;} blob;
-	if (srv)
-	{
-		Q_snprintfz(sql, sizeof(sql), "UPDATE accounts SET stats=x'");
-		sqle = sql+strlen(sql);
-		for (blob.f = stats, numstats*=4; numstats--; blob.b++)
-		{
-			*sqle++ = hex[*blob.b>>4];
-			*sqle++ = hex[*blob.b&15];
-		}
-		Q_snprintfz(sqle, sizeof(sql)-(sqle-sql), "', serverid=%u WHERE playerid = %u;", serverid, playerid);
-
-		SQL_NewQuery(srv, SV_IgnoreSQLResult, sql, &req);
-	}
-#endif
-}
-
 qboolean MSV_ClusterLoginReply(netadr_t *legacyclientredirect, unsigned int serverid, unsigned int playerid, char *playername, char *clientguid, netadr_t *clientaddr, void *statsblob, size_t statsblobsize)
 {
 	char tmpbuf[256];
@@ -1213,91 +1178,7 @@ qboolean MSV_ClusterLoginReply(netadr_t *legacyclientredirect, unsigned int serv
 	return false;
 }
 
-#ifdef SQL
-qboolean MSV_ClusterLoginSQLResult(queryrequest_t *req, int firstrow, int numrows, int numcols, qboolean eof)
-{
-	sqlserver_t *sql = SQL_GetServer(&sv, req->srvid, true);
-	queryresult_t *res = SQL_GetQueryResult(sql, req->num, 0);
-	svconnectinfo_t *info = req->user.thread;
-	char *s;
-	int playerid, serverid;
-	char *statsblob;
-	size_t blobsize;
 
-	//we only expect one row. if its a continuation then don't bug out
-	if (!firstrow)
-	{
-		res = SQL_GetQueryResult(sql, req->num, 0);
-		if (!res)
-		{
-			playerid = 0;
-			statsblob = NULL;
-			blobsize = 0;
-			serverid = 0;
-		}
-		else
-		{
-			s = SQL_ReadField(sql, res, 0, 0, true, NULL);
-			playerid = atoi(s);
-
-			statsblob = SQL_ReadField(sql, res, 0, 2, true, &blobsize);
-
-			s = SQL_ReadField(sql, res, 0, 1, true, NULL);
-			serverid = s?atoi(s):0;
-		}
-
-		net_from = info->adr;	//okay, that's a bit stupid, rewrite rejectmessage to accept an arg?
-		if (!playerid)
-			SV_RejectMessage(info->protocol, "Bad username or password.\n");
-		else if (sv.state == ss_clustermode)
-			MSV_ClusterLoginReply(NULL, serverid, playerid, Info_ValueForKey(info->userinfo, "name"), info->guid, &info->adr, statsblob, blobsize);
-		else
-			SV_DoDirectConnect(info);
-		Z_Free(info);
-		req->user.thread = NULL;
-		pendinglookups--;
-	}
-	return false;
-}
-#endif
-
-#if 0
-static qboolean MSV_IgnoreSQLResult(queryrequest_t *req, int firstrow, int numrows, int numcols, qboolean eof)
-{
-	return false;
-}
-#endif
-void MSV_OpenUserDatabase(void)
-{
-#if 0
-	sqlserver_t *sql;
-	const char *sqlparams[] =
-	{
-		"",
-		"",
-		"",
-		"login",
-	};
-
-	Con_Printf("Opening database \"%s\"\n", sqlparams[3]);
-	sv.logindatabase = SQL_NewServer(&sv, "sqlite", sqlparams);
-
-	//create a the accounts table, so we don't end up with unusable databases.
-	sql = SQL_GetServer(&sv, sv.logindatabase, false);
-	if (sql)
-	{
-		SQL_NewQuery(sql, MSV_IgnoreSQLResult,
-				"CREATE TABLE IF NOT EXISTS accounts("
-					"playerid INTEGER PRIMARY KEY,"
-					"name TEXT NOT NULL UNIQUE,"
-					"password TEXT,"
-					"serverid INTEGER,"
-					"parms BLOB,"
-					"parmstring TEXT"
-				");", NULL);
-	}
-#endif
-}
 
 //returns true to block entry to this server.
 extern int	nextuserid;
@@ -1308,28 +1189,6 @@ qboolean MSV_ClusterLogin(svconnectinfo_t *info)
 		SV_RejectMessage(SCP_QUAKEWORLD, "No guid info, please set cl_sendguid to 1.\n");
 		return false;
 	}*/
-#ifdef SQL
-	if (sv.logindatabase != -1)
-	{
-		char escname[64], escpasswd[64];
-		sqlserver_t *sql;
-		queryrequest_t *req;
-		if (pendinglookups > 10)
-			return true;	//don't spam requests if we're getting dos-spammed.
-		sql = SQL_GetServer(&sv, sv.logindatabase, false);
-		if (!sql)
-			return true;	//connection was killed? o.O
-		SQL_Escape(sql, Info_ValueForKey(info->userinfo, "name"), escname, sizeof(escname));
-		SQL_Escape(sql, Info_ValueForKey(info->userinfo, "password"), escpasswd, sizeof(escpasswd));
-		if (SQL_NewQuery(sql, MSV_ClusterLoginSQLResult, va("SELECT playerid,serverid,parms,parmstring FROM accounts WHERE name='%s' AND password='%s';", escname, escpasswd), &req) != -1)
-		{
-			pendinglookups++;
-			req->user.thread = Z_Malloc(sizeof(*info));
-			memcpy(req->user.thread, info, sizeof(*info));
-		}
-	}
-	else
-#endif
 	if (sv.state != ss_clustermode)
 		return false;
 	else

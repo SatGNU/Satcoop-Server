@@ -1114,8 +1114,6 @@ void SV_SpawnServer (const char *server, const char *startspot, qboolean noents,
 
 	sv.state = ss_loading;
 
-MSV_OpenUserDatabase();
-
 	sv.world.max_edicts = pr_maxedicts.value;
 	if (sv.world.max_edicts > MAX_EDICTS)
 		sv.world.max_edicts = MAX_EDICTS;

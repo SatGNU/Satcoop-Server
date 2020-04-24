@@ -149,7 +149,7 @@
 #define HAVE_GNUTLS				//on linux
 //#define HAVE_OPENSSL			//on linux. hardlinked, so typically set only via the makefile.
 #define HAVE_WINSSPI			//on windows
-#define FTPSERVER				//sv_ftp cvar.
+//#define FTPSERVER				//sv_ftp cvar.
 #define WEBCLIENT				//uri_get+any internal downloads etc
 #define HAVE_HTTPSV				//net_enable_http/websocket
 #define TCPCONNECT				//support for playing over tcp sockets, instead of just udp. compatible with qizmo.
@@ -169,14 +169,14 @@
 #define AVAIL_MP3_ACM			//.mp3 support (windows only).
 
 // Other Audio Options
-#define VOICECHAT
-#define HAVE_SPEEX				//Support the speex codec.
-#define HAVE_OPUS               //Support the opus codec.
+//#define VOICECHAT
+//#define HAVE_SPEEX				//Support the speex codec.
+//#define HAVE_OPUS               //Support the opus codec.
 #define HAVE_MEDIA_DECODER		//can play cin/roq, more with plugins
-#define HAVE_MEDIA_ENCODER		//capture/capturedemo work.
+//#define HAVE_MEDIA_ENCODER		//capture/capturedemo work.
 #define HAVE_CDPLAYER			//includes cd playback. actual cds. named/numbered tracks are supported regardless (though you need to use the 'music' command to play them without this).
 #define HAVE_JUKEBOX			//includes built-in jukebox crap
-#define HAVE_SPEECHTOTEXT		//windows speech-to-text thing
+//#define HAVE_SPEECHTOTEXT		//windows speech-to-text thing
 
 // Features required by vanilla quake/quakeworld...
 //#define QUAKETC

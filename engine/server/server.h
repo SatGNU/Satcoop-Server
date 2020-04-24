@@ -1249,14 +1249,14 @@ void MSV_SubServerCommand_f(void);
 void MSV_MapCluster_f(void);
 void SSV_Send(const char *dest, const char *src, const char *cmd, const char *msg);
 qboolean MSV_ClusterLogin(svconnectinfo_t *info);
+pubsubserver_t *MSV_StartSubServer(unsigned int id, const char *mapname);
+pubsubserver_t *MSV_FindSubServer(unsigned int id);
 void MSV_PollSlaves(void);
 void MSV_Status(void);
-void MSV_OpenUserDatabase(void);
 #else
 #define SSV_UpdateAddresses() ((void)0)
 #define MSV_ClusterLogin(info) false
 #define SSV_IsSubServer() false
-#define MSV_OpenUserDatabase()
 #endif
 
 //

@@ -405,6 +405,13 @@ enum clustercmdops_e
 			//string source (player name)
 			//string cmd (type of event, handled by receiving server/forwarded to client)
 			//string msg (extra info, like the typed text)
+	ccmd_setservermap,
+			//long cluster_id (subserver id for master)
+			//string mapname
+			// SPAWNS NEW SERVER IF NONE AT CLUSTERID
+	ccmd_changemap,
+			//string mapname
+			// Sent from master to subserver
 };
 
 
