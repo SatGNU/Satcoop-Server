@@ -412,6 +412,14 @@ enum clustercmdops_e
 	ccmd_changemap,
 			//string mapname
 			// Sent from master to subserver
+	ccmd_relaybprint,
+			// long PRINT_LEVEL
+			// string message
+			// Send from shard to master on bprint, and relayed from master to other shards
+	ccmd_relaychat,
+			// string message
+			// Send from shard to master on bprint, and relayed from master to other shards
+
 };
 
 

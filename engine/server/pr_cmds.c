@@ -3118,6 +3118,23 @@ static void QCBUILTIN PF_bprint (pubprogfuncs_t *prinst, struct globalvars_s *pr
 		s = PF_VarString(prinst, 1, pr_globals);
 	}
 	SV_BroadcastPrintf (level, "%s", s);
+
+	// If we're a shard, relay msg to master which relays to all other shards
+	if(SSV_IsSubServer()) {
+		sizebuf_t	send;
+		qbyte		send_buf[MAX_QWMSGLEN];
+
+		memset(&send, 0, sizeof(send));
+		send.data = send_buf;
+		send.maxsize = sizeof(send_buf);
+		send.cursize = 2;
+
+		MSG_WriteByte(&send, ccmd_relaybprint);
+		MSG_WriteLong(&send, level);
+		MSG_WriteString(&send, s);
+
+		SSV_InstructMaster(&send);
+	}
 }
 
 /*
@@ -10432,6 +10449,10 @@ static void QCBUILTIN PF_setpause(pubprogfuncs_t *prinst, struct globalvars_s *p
 	}
 }
 
+static void QCBUILTIN PF_issubserver(pubprogfuncs_t *prinst, struct globalvars_s *pr_globals)
+{
+	G_INT(OFS_RETURN) = SSV_IsSubServer();
+}
 
 #define STUB ,NULL,true
 #if defined(DEBUG) || defined(_DEBUG)
@@ -11029,6 +11050,7 @@ static BuiltinList_t BuiltinList[] = {				//nq	qw		h2		ebfs
 	{"clusterevent",	PF_clusterevent,	0,		0,		0,		0,		D("void(string dest, string from, string cmd, string info)", "Only functions in mapcluster mode. Sends an event to whichever server the named player is on. The destination server can then dispatch the event to the client or handle it itself via the SV_ParseClusterEvent entrypoint. If dest is empty, the event is broadcast to ALL servers. If the named player can't be found, the event will be returned to this server with the cmd prefixed with 'error:'.")},
 	{"clustertransfer",	PF_clustertransfer,	0,		0,		0,		0,		D("string(entity player, optional string newnode)", "Only functions in mapcluster mode. Initiate transfer of the player to a different node. Can take some time. If dest is specified, returns null on error. Otherwise returns the current/new target node (or null if not transferring).")},
 	{"sc_clustermap",		PF_clustermap,	0,		0,		0,		0,		D("void(float node_id, string mapname)", "Start a new subserver with the given cluster ID and load the specified map")},
+	{"sc_is_subserver",		PF_issubserver,	0,		0,		0,		0,		D("float()", "Returns true if running in cluster mode")},
 
 	{"modelframecount", PF_modelframecount, 0,		0,		0,		0,		D("float(float mdlidx)", "Retrieves the number of frames in the specified model.")},
 

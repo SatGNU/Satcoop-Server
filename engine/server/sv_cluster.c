@@ -694,6 +694,50 @@ void MSV_ReadFromSubServer(pubsubserver_t *s)
 			}
 		}
 		break;
+	case ccmd_relaybprint:
+		{
+			int level = MSG_ReadLong();
+			char *message = MSG_ReadString();
+
+			memset(&send, 0, sizeof(send));
+			send.data = send_buf;
+			send.maxsize = sizeof(send_buf);
+			send.cursize = 2;
+
+			MSG_WriteByte(&send, ccmd_relaybprint);
+			MSG_WriteLong(&send, level);
+			MSG_WriteString(&send, message);
+			
+			// Inform all subservers except the one that sent it
+			pubsubserver_t *sub;
+			for (sub = subservers; sub; sub = sub->next) {
+				if(sub != s) {
+					sub->funcs.InstructSlave(sub, &send);
+				}	
+			}
+		}
+		break;
+	case ccmd_relaychat:
+		{
+			char *message = MSG_ReadString();
+
+			memset(&send, 0, sizeof(send));
+			send.data = send_buf;
+			send.maxsize = sizeof(send_buf);
+			send.cursize = 2;
+
+			MSG_WriteByte(&send, ccmd_relaychat);
+			MSG_WriteString(&send, message);
+			
+			// Inform all subservers except the one that sent it
+			pubsubserver_t *sub;
+			for (sub = subservers; sub; sub = sub->next) {
+				if(sub != s) {
+					sub->funcs.InstructSlave(sub, &send);
+				}	
+			}
+		}
+		break;
 	}
 	if (msg_readcount != net_message.cursize || msg_badread)
 		Sys_Error("Master: Readcount isn't right (%i)\n", net_message.data[0]);
@@ -963,10 +1007,24 @@ void SSV_ReadFromControlServer(void)
 			}
 		}
 		break;
-		case ccmd_changemap:
+	case ccmd_changemap:
 		{
 			char *newmap = MSG_ReadString();
 			Cbuf_AddText (va("\nchangelevel %s\n", newmap), RESTRICT_LOCAL);
+		}
+		break;
+	case ccmd_relaybprint:
+		{
+			int level = MSG_ReadLong();
+			char *message = MSG_ReadString();
+
+			SV_BroadcastPrintf(level, message);
+		}
+		break;
+	case ccmd_relaychat:
+		{
+			char *message = MSG_ReadString();
+			SV_BroadcastPrintf(PRINT_CHAT, message);
 		}
 		break;
 	}

@@ -5014,7 +5014,7 @@ float SV_Frame (void)
 
 	delay = sv_maxtic.value;
 	if (isDedicated && sv.spawned_client_slots == 0 && sv.spawned_observer_slots == 0)
-		delay = max(delay, 1);	//when idle, don't keep waking up for no reason
+		delay = max(delay, 0.25f);	//when idle, don't keep waking up for no reason
 
 // keep the random time dependent
 	rand ();

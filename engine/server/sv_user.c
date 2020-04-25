@@ -3944,6 +3944,22 @@ void SV_Say (qboolean team)
 	mvdrecording = sv.mvdrecording;
 	sv.mvdrecording = false;	//so that the SV_ClientPrintf doesn't send to all players.
 #endif
+
+	if(SSV_IsSubServer()) {
+		sizebuf_t	send;
+		qbyte		send_buf[MAX_QWMSGLEN];
+
+		memset(&send, 0, sizeof(send));
+		send.data = send_buf;
+		send.maxsize = sizeof(send_buf);
+		send.cursize = 2;
+
+		MSG_WriteByte(&send, ccmd_relaychat);
+		MSG_WriteString(&send, text);
+
+		SSV_InstructMaster(&send);
+	}
+
 	for (j = 0, client = svs.clients; j < svs.allocated_client_slots; j++, client++)
 	{
 		if (client->state != cs_spawned && client->state != cs_connected)
